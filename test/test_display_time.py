@@ -71,3 +71,8 @@ class TestDisplayTime(unittest.TestCase):
         time_2 = DisplayTime('01:45:56')
         time_3 = time_1 - time_2
         self.assertEqual('-01:44:33', time_3.get_time_string())
+
+    def test_gt(self):
+        time_1 = DisplayTime('00:01:23')
+        time_2 = DisplayTime('01:45:56')
+        self.assertTrue(time_2>time_1)
