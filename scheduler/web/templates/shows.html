@@ -3,15 +3,22 @@
 <head>
     <title>TV Shows Scheduler</title>
 
-    <h1>TV Shows Scheduler</h1>
-    <script type=text/javascript src="/static/jquery-1.11.3.min.js"></script>
+    <!-- Bootstrap core CSS -->
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap theme -->
+    <link href="/static/css/bootstrap-theme.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="../static/css/theme.css" rel="stylesheet">
+
+    <script type=text/javascript src="/static/js/jquery-1.11.3.min.js"></script>
     <script type="text/javascript">
 
     setInterval(function() {
         $.getJSON('/_get_table',  // At this URL
-                  {},          // With no extra parameters
+                  { time:getTime() },          // With no extra parameters
                   function(data) {
-                      html = '<table id="table_shows"><tr><th>Sequence</th><th>Name</th><th>Duration</th><th>Plan</th><th>Current Time</th><th>Gap</th><th>Recommendation</th></tr>';
+                      html = '<table id="table_shows" class="table table-hover"><tr><th>Sequence</th><th>Name</th><th>Duration</th><th>Plan</th><th>Current Time</th><th>Gap</th><th>Recommendation</th></tr>';
                       for(var i = 0; i < data.table.length; i++) {
                           html += getRow(data.table[i]);
                       }
@@ -21,7 +28,11 @@
         }, 1000);
 
     function getRow(rowData) {
-        var html = '<tr>'
+        if(rowData.gap.charAt(0) == "-") {
+            var html = '<tr class="danger">';
+        } else {
+            var html = '<tr class="success">';
+        }
 
         html += "<td>" + rowData.seq + "</td>";
         html += "<td>" + rowData.name + "</td>";
@@ -34,15 +45,77 @@
         return html
     }
 
+    function getTime() {
+        var today = new Date();
+        var h = today.getHours();
+        var m = today.getMinutes();
+        var s  =today.getSeconds();
+
+        m = checkTime(m);
+        s = checkTime(s);
+
+        return h + ":" + m + ":" + s;
+    }
+
+    function checkTime(i) {
+        if (i < 10) {
+            i = "0" + i;
+        }
+        return i;
+    }
+
+
+
+
+
     </script>
 </head>
 <body>
-<form action="" method=post enctype=multipart/form-data>
-    <p><input type=file name=file>
-        <input type=submit value=Upload>
-</form>
-<div id="test"></div>
-<div id="table_holder">
+<nav class="navbar navbar-inverse navbar-fixed-top">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                    aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+
+            <a class="navbar-brand" href="#">TV Shows Scheduler</a>
+        </div>
+        <!--/.nav-collapse -->
+    </div>
+</nav>
+<div class="container">
+
+    <div class="row">
+        <div id="table_holder"></div>
+    </div>
+
+    <form method=post enctype=multipart/form-data>
+
+        <div class="form-group">
+            <label for="exampleInputFile">CSV file for schedule</label>
+            <input type=file name=file>
+
+            <p class="help-block">Sample CSV file:<br>
+                <br>seq,name,duration,plan
+                <br>1,节目名称1,00:03:00,21:00:00
+                <br>2,节目名称2,00:04:00,21:03:00
+                <br>3,节目名称3,00:02:30,21:07:00
+                <br>
+            </p>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+    </form>
+
+
+    <br><br>
+
 </div>
+
+<script src="/static/js/bootstrap.min.js"></script>
 </body>
 </html>

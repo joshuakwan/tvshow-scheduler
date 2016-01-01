@@ -2,12 +2,12 @@
 import csv
 import logging
 import os
-from datetime import datetime
-from shows import Shows
-from display_time import DisplayTime
 
-from flask import Flask, request, jsonify, render_template, redirect
+from flask import Flask, request, jsonify, redirect
 from jinja2 import Environment, PackageLoader
+
+from display_time import DisplayTime
+from shows import Shows
 
 
 def setup_logging():
@@ -45,8 +45,7 @@ def open_file(filename):
 
 @app.route('/_get_table')
 def get_table():
-    now = datetime.now()
-    time_str = '%s:%s:%s' % (str(now.hour).zfill(2), str(now.minute).zfill(2), str(now.second).zfill(2))
+    time_str = request.args.get('time')
     time_now = DisplayTime(time_str)
     file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
     with open(file_name, 'r') as f:
