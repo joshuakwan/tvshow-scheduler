@@ -1,47 +1,85 @@
 # -*- coding: utf-8 -*-
-import datetime
-from prettytable import PrettyTable
+import csv
+import logging
+import os
+from datetime import datetime
+from shows import Shows
+from display_time import DisplayTime
+
+from flask import Flask, request, jsonify, render_template, redirect
+from jinja2 import Environment, PackageLoader
 
 
-class Show(object):
-    def __init__(self, raw_data):
-        self.sequence, self.name, self.duration, self.planned_time = raw_data.split(',')
-
-    def get_current_time(self):
-        now = datetime.datetime.now()
-        return '%s:%s:%s' % (str(now.hour).zfill(2), str(now.minute).zfill(2), str(now.second).zfill(2))
-
-    def get_table_data(self):
-        return [self.sequence, self.name, self.duration, self.planned_time, self.get_current_time(), 0, 0]
+def setup_logging():
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)s %(name)s: '
+                               '(%(threadName)-10s) %(message)s')
 
 
-class Shows(object):
-    def __init__(self, raw_data):
-        self.table = PrettyTable(['序号', '名称', '时长', '既定时间', '实时时间', '时差', '备选建议'])
-        self.table.padding_width = 1
-        self.shows = []
-        for line in raw_data:
-            if line.startswith('seq,name,duration,plan'):
-                continue
-            self.shows.append(Show(line))
+UPLOAD_FOLDER = 'uploads/'
+ALLOWED_EXTENSIONS = set(['csv'])
 
-    def get_table(self):
-        for show in self.shows:
-            self.table.add_row(show.get_table_data())
-        # import pdb
-        # pdb.set_trace()
-        return self.table
+app = Flask('tvshow-scheduler', static_folder='web/static/', static_url_path='/static')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
-# if __name__ == '__main__':
-#     d1 = DisplayTime('01:01:59')
-#     d2 = DisplayTime('00:02:04')
-#     d3 = d1 + d2
-#     print d1._value, d2._value, d3._value
-#     print d3
-#     # shows = Shows(open('data', 'r'))
-#     # print shows.get_table()
-#     # html_str = shows.get_table().get_html_string()
-#     # f = open('schedule.html', 'a')
-#     # f.write(html_str)
-#     # f.close()
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+
+
+def open_file(filename):
+    data = []
+    with open(filename, 'r') as f:
+        iterator = csv.reader(f)
+        next(iterator)
+        for entry in iterator:
+            item = dict()
+            item['seq'] = entry[0]
+            item['name'] = entry[1].decode('utf-8')
+            item['duration'] = entry[2]
+            item['plan'] = entry[3]
+            data.append(item)
+    return data
+
+
+@app.route('/_get_table')
+def get_table():
+    now = datetime.now()
+    time_str = '%s:%s:%s' % (str(now.hour).zfill(2), str(now.minute).zfill(2), str(now.second).zfill(2))
+    time_now = DisplayTime(time_str)
+    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
+    with open(file_name, 'r') as f:
+        iterator = csv.reader(f)
+        next(iterator)
+        shows_data = [entry for entry in iterator]
+        global_shows = Shows(shows_data)
+    table = global_shows.get_shows_table(time_now)
+    return jsonify(table=table)
+
+
+@app.route('/shows', methods=['GET', 'POST'])
+def home():
+    env = Environment(loader=PackageLoader('web'))
+    template_index = env.get_template('shows.html')
+
+    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
+
+    data = dict()
+
+    if os.path.exists(file_name):
+        data['shows'] = open_file(file_name)
+
+    if request.method == 'GET':
+        return template_index.render(data)
+
+    if request.method == 'POST':
+        f = request.files['file']
+        if f and allowed_file(f.filename):
+            f.save(file_name)
+            return redirect('/shows')
+
+
+if __name__ == '__main__':
+    setup_logging()
+    app.run(port=5000)

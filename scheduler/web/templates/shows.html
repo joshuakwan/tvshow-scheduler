@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+    <title>TV Shows Scheduler</title>
+
+    <h1>TV Shows Scheduler</h1>
+    <script type=text/javascript src="/static/jquery-1.11.3.min.js"></script>
+    <script type="text/javascript">
+
+    setInterval(function() {
+        $.getJSON('/_get_table',  // At this URL
+                  {},          // With no extra parameters
+                  function(data) {
+                      html = '<table id="table_shows"><tr><th>Sequence</th><th>Name</th><th>Duration</th><th>Plan</th><th>Current Time</th><th>Gap</th><th>Recommendation</th></tr>';
+                      for(var i = 0; i < data.table.length; i++) {
+                          html += getRow(data.table[i]);
+                      }
+
+                      $("#table_holder").html(html);
+                  });
+        }, 1000);
+
+    function getRow(rowData) {
+        var html = '<tr>'
+
+        html += "<td>" + rowData.seq + "</td>";
+        html += "<td>" + rowData.name + "</td>";
+        html += "<td>" + rowData.duration + "</td>";
+        html += "<td>" + rowData.plan + "</td>";
+        html += "<td>" + rowData.current + "</td>";
+        html += "<td>" + rowData.gap + "</td>";
+        html += "<td>" + rowData.recommendation.toString() + "</td>";
+
+        return html
+    }
+
+    </script>
+</head>
+<body>
+<form action="" method=post enctype=multipart/form-data>
+    <p><input type=file name=file>
+        <input type=submit value=Upload>
+</form>
+<div id="test"></div>
+<div id="table_holder">
+</div>
+</body>
+</html>
