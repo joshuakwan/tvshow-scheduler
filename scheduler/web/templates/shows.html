@@ -8,13 +8,16 @@
     <!-- Bootstrap theme -->
     <link href="/static/css/bootstrap-theme.min.css" rel="stylesheet">
 
+    <link href="/static/css/jquery-ui.css" rel="stylesheet">
+
     <!-- Custom styles for this template -->
     <link href="../static/css/theme.css" rel="stylesheet">
 
     <script type=text/javascript src="/static/js/jquery-1.11.3.min.js"></script>
+    <script type=text/javascript src="/static/js/jquery-ui.min.js"></script>
     <script type="text/javascript">
 
-    setInterval(function() {
+    var refresh = function() {
         $.getJSON('/_get_table',  // At this URL
                   { time:getTime() },          // With no extra parameters
                   function(data) {
@@ -25,7 +28,9 @@
 
                       $("#table_holder").html(html);
                   });
-        }, 1000);
+        };
+
+    setInterval(refresh, 1000);
 
     function getRow(rowData) {
         if(rowData.gap.charAt(0) == "-") {
@@ -64,9 +69,17 @@
         return i;
     }
 
-
-
-
+    function showDialog() {
+        document.getElementById("dialog-upload").style.visibility = "visible"
+        $("#dialog-upload").dialog({
+            modal:true,
+            buttons: {
+                Cancel: function() {
+                    $("#dialog-upload").dialog("close");
+                }
+            }
+        });
+    }
 
     </script>
 </head>
@@ -84,6 +97,11 @@
 
             <a class="navbar-brand" href="#">TV Shows Scheduler</a>
         </div>
+        <div id="navbar" class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+                <li><a href="#" onclick="showDialog()">Upload a new schedule</a></li>
+            </ul>
+        </div>
         <!--/.nav-collapse -->
     </div>
 </nav>
@@ -93,27 +111,33 @@
         <div id="table_holder"></div>
     </div>
 
-    <form method=post enctype=multipart/form-data>
+    <!--<div class="row">-->
+        <!--<div class="col-xs-3">-->
+            <!--<label placeholder=".col-xs-3">Refresh interval (in seconds)</label>-->
+        <!--</div>-->
+        <!--<div class="col-xs-2">-->
+            <!--<select class="form-control" id="interval" placeholder=".col-xs-2">-->
+                <!--<option>1</option>-->
+                <!--<option>5</option>-->
+                <!--<option>10</option>-->
+                <!--<option>30</option>-->
+                <!--<option>60</option>-->
+            <!--</select>-->
 
-        <div class="form-group">
-            <label for="exampleInputFile">CSV file for schedule</label>
-            <input type=file name=file>
+        <!--</div>-->
+    <!--</div>-->
 
-            <p class="help-block">Sample CSV file:<br>
-                <br>seq,name,duration,plan
-                <br>1,节目名称1,00:03:00,21:00:00
-                <br>2,节目名称2,00:04:00,21:03:00
-                <br>3,节目名称3,00:02:30,21:07:00
-                <br>
-            </p>
-        </div>
+    <div id="dialog-upload" title="Upload a new schedule" style="visibility:hidden">
+        <form method=post enctype=multipart/form-data>
+            <fieldset>
 
-        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
-    </form>
+                    <label for="exampleInputFile">CSV file for schedule</label>
+                    <input type=file name=file>
 
-
-    <br><br>
-
+                <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+            </fieldset>
+        </form>
+    </div>
 </div>
 
 <script src="/static/js/bootstrap.min.js"></script>
