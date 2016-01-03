@@ -8,6 +8,7 @@ from jinja2 import Environment, PackageLoader
 
 from display_time import DisplayTime
 from shows import Shows
+from doc_processor import DocumentProcessor
 
 
 def setup_logging():
@@ -17,7 +18,7 @@ def setup_logging():
 
 
 UPLOAD_FOLDER = 'uploads/'
-ALLOWED_EXTENSIONS = set(['csv'])
+ALLOWED_EXTENSIONS = set(['docx'])
 
 app = Flask('tvshow-scheduler', static_folder='web/static/', static_url_path='/static')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -47,12 +48,10 @@ def open_file(filename):
 def get_table():
     time_str = request.args.get('time')
     time_now = DisplayTime(time_str)
-    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
-    with open(file_name, 'r') as f:
-        iterator = csv.reader(f)
-        next(iterator)
-        shows_data = [entry for entry in iterator]
-        global_shows = Shows(shows_data)
+    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.docx')
+    processor = DocumentProcessor()
+    shows_data = processor.get_shows(file_name)
+    global_shows = Shows(shows_data)
     table = global_shows.get_shows_table(time_now)
     return jsonify(table=table)
 
@@ -62,12 +61,9 @@ def home():
     env = Environment(loader=PackageLoader('web'))
     template_index = env.get_template('shows.html')
 
-    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
+    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.docx')
 
     data = dict()
-
-    if os.path.exists(file_name):
-        data['shows'] = open_file(file_name)
 
     if request.method == 'GET':
         return template_index.render(data)
