@@ -13,73 +13,230 @@
     <!-- Custom styles for this template -->
     <link href="../static/css/theme.css" rel="stylesheet">
 
+    <style>
+        #sortable { list-style-type: none; margin: 0; padding: 0; width: 60%; }
+        #sortable li { margin: 0 3px 3px 3px; padding: 0.4em; padding-left: 1.5em; font-size: 1.4em; height: 18px; }
+        #sortable li span { position: absolute; margin-left: -1.3em; }
+    </style>
+
     <script type=text/javascript src="/static/js/jquery-1.11.3.min.js"></script>
     <script type=text/javascript src="/static/js/jquery-ui.min.js"></script>
     <script type="text/javascript">
 
-    var refresh = function() {
-        $.getJSON('/_get_table',  // At this URL
-                  { time:getTime() },          // With no extra parameters
-                  function(data) {
-                      html = '<table id="table_shows" class="table table-hover"><tr><th>Sequence</th><th>Name</th><th>Duration</th><th>Plan</th><th>Current Time</th><th>Gap</th><th>Recommendation</th></tr>';
-                      for(var i = 0; i < data.table.length; i++) {
-                          html += getRow(data.table[i]);
-                      }
+    var DisplayTime = function(timeString) {
+      this.timeStr = timeString;
+      var splitted = this.timeStr.split(":");
+      this.hour = parseInt(splitted[0]);
+      this.minute = parseInt(splitted[1]);
+      this.second = parseInt(splitted[2]);
 
-                      $("#table_holder").html(html);
-                  });
-        };
+      if(this.hour >= 0){
+        this.isNegative = false;
+        this.totalSeconds = this.hour * 3600 + this.minute * 60 + this.second;
+      } else {
+        this.isNegative = true;
+        this.totalSeconds = -(Math.abs(this.hour) * 3600 + this.minute * 60 + this.second);
+      }
+    };
+
+    DisplayTime.prototype.greaterThan = function(displayTime) {
+      return (this.totalSeconds > displayTime.totalSeconds);
+    };
+
+    DisplayTime.prototype.equal = function(displayTime) {
+      return (this.totalSeconds == displayTime.totalSeconds);
+    };
+
+    DisplayTime.prototype.valueOf = function() {
+      return this.timeStr;
+    };
+
+    DisplayTime.prototype.toString = function() {
+      return this.timeStr;
+    };
+
+    DisplayTime.prototype.minus = function(displayTime) {
+      return new DisplayTime(valueToString(this.totalSeconds - displayTime.totalSeconds));
+    };
+
+    DisplayTime.prototype.plus = function(displayTime) {
+      return new DisplayTime(valueToString(this.totalSeconds + displayTime.totalSeconds));
+    };
+
+    var Show = function(data) {
+      this.number = data.seq;
+      this.name = data.name;
+      this.duration = new DisplayTime(data.duration);
+      this.plan = new DisplayTime(data.plan);
+    };
+
+    function valueToString(value) {
+      if(value < 0) {
+        var minus_flag = true;
+        value = Math.abs(value);
+      } else {
+        var minus_flag = false;
+      }
+
+      hour = parseInt(value / 3600);
+      minute = parseInt((value % 3600) / 60);
+      second = value - hour * 3600 - minute * 60
+
+      var time_str = checkTime(hour.toString()) + ":" +  checkTime(minute.toString()) + ":" +  checkTime(second.toString());
+
+      if(minus_flag == true) {
+        time_str = "-" + time_str;
+      }
+
+      return time_str
+    };
+
+    var shows = new Map();
+
+    var load_table = function() {
+      $.getJSON('/_get_table',  // At this URL
+                { time:getTime() },          // With no extra parameters
+                function(data) {
+                  table = document.getElementById("table_shows");
+                  if(table.rows.length > 1) {
+                    for(var i = 1; i < table.rows.length; i++) {
+                      table.deleteRow(i);
+                    }
+                  }
+                  for(var i = 0; i < data.table.length; i++) {
+                    generateRow(table, i, data.table[i], getTime());
+                  }
+                });
+    };
+
+    $(document).ready(load_table);
+
+    var refresh = function() {
+      table = document.getElementById("table_shows");
+      updateTable(table.rows, getTime());
+    };
 
     setInterval(refresh, 1000);
 
-    function getRow(rowData) {
-        if(rowData.gap.charAt(0) == "-") {
-            var html = '<tr class="danger">';
-        } else {
-            var html = '<tr class="success">';
+    function generateRow(table, index, rowData, nowString) {
+      now = new DisplayTime(nowString);
+      show = new Show(rowData)
+      shows.set(rowData.seq, show);
+      row = table.insertRow(index + 1);
+      row.insertCell(0).innerText = index + 1;
+      row.insertCell(1).innerText = show.number;
+      row.insertCell(2).innerText = show.name;
+      row.insertCell(3).innerText = show.duration.toString();
+      row.insertCell(4).innerText = show.plan.toString();
+      row.insertCell(5).innerText = now.toString();
+      gap = show.plan.minus(now);
+      row.insertCell(6).innerText = gap.toString();
+      row.insertCell(7).innerText = "";
+    }
+
+
+    function updateTable(rows, nowString) {
+      now = new DisplayTime(nowString);
+      for(var i = 1; i < rows.length; i++ ) {
+        var row = table.rows[i];
+        var show = shows.get(row.cells[1].innerText)
+        row.cells[5].innerText = now.toString();
+        var gap = show.plan.minus(now)
+        row.cells[6].innerText = gap.toString();
+        row.cells[7].innerText = getRecommendation(show, now).toString();
+      }
+    }
+
+    function getRecommendation(show, now) {
+      var validShows = new Array();
+      shows.forEach(function(value, key) {
+        if(value.number != show.number && value.plan.greaterThan(now) || value.plan.equal(now)) {
+          validShows.push(value);
         }
+      });
 
-        html += "<td>" + rowData.seq + "</td>";
-        html += "<td>" + rowData.name + "</td>";
-        html += "<td>" + rowData.duration + "</td>";
-        html += "<td>" + rowData.plan + "</td>";
-        html += "<td>" + rowData.current + "</td>";
-        html += "<td>" + rowData.gap + "</td>";
-        html += "<td>" + rowData.recommendation.toString() + "</td>";
+      recommendation = new Array();
 
-        return html
+      gap = show.plan.minus(now);
+
+      validShows.forEach(function(value){
+        if(gap.greaterThan(value.duration)){
+          recommendation.push(value.number);
+        }
+      });
+
+      return recommendation
     }
 
     function getTime() {
-        var today = new Date();
-        var h = today.getHours();
-        var m = today.getMinutes();
-        var s  =today.getSeconds();
+      var today = new Date();
+      var h = today.getHours();
+      var m = today.getMinutes();
+      var s = today.getSeconds();
 
-        m = checkTime(m);
-        s = checkTime(s);
+      m = checkTime(m);
+      s = checkTime(s);
 
-        return h + ":" + m + ":" + s;
+      return h + ":" + m + ":" + s;
     }
 
     function checkTime(i) {
-        if (i < 10) {
-            i = "0" + i;
-        }
-        return i;
+      if (i < 10) {
+        i = "0" + i;
+      }
+      return i;
     }
 
     function showDialog() {
-        document.getElementById("dialog-upload").style.visibility = "visible"
-        $("#dialog-upload").dialog({
-            modal:true,
-            buttons: {
-                Cancel: function() {
-                    $("#dialog-upload").dialog("close");
-                }
-            }
-        });
+      document.getElementById("dialog-upload").style.visibility = "visible"
+      $("#dialog-upload").dialog({
+        modal:true,
+        buttons: {
+          Cancel: function() {
+            $("#dialog-upload").dialog("close");
+          }
+        }
+      });
     }
+
+    $(".sortable_table").on('click', '.up, .down', function(event){
+      var row = $(this).closest("tr");
+      if ($(this).is(".up")) {
+        row.insertBefore(row.prev());
+      } else {
+        row.insertAfter(row.next());
+      }
+      row.fadeOut();
+      row.fadeIn();
+    });
+
+    $(function() {
+      var fixHelper = function(e, ui) {
+	      ui.children().each(function() {
+		      $(this).width($(this).width());
+	      });
+	      return ui;
+      };
+
+      var sortHelper = function(e, ui) {
+        var table = ui.item.parent()[0];
+        for(var i = 1; i < table.rows.length; i++) {
+          table.rows[i].cells[0].innerText = i;
+        }
+
+        document.getElementById("button_table_changed").style.visibility = "visible";
+        document.getElementById("label_table_changed").style.visibility = "visible";
+        $('#label_table_changed').text("节目顺序已经被调整！");
+      };
+
+      $( ".sortable_table tbody" ).sortable({
+        helper: fixHelper,
+        update: sortHelper
+      });
+
+      $( ".sortable_table tbody" ).disableSelection();
+    });
+
 
     </script>
 </head>
@@ -99,7 +256,8 @@
         </div>
         <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
-                <li><a href="#" onclick="showDialog()">Upload a new schedule</a></li>
+                <li><a href="#" onclick="document.location.reload(true)">重新载入当前时间表</a></li>
+                <li><a href="#" onclick="showDialog()">上传新的时间表</a></li>
             </ul>
         </div>
         <!--/.nav-collapse -->
@@ -107,39 +265,62 @@
 </nav>
 <div class="container">
 
-    <div class="row">
-        <div id="table_holder"></div>
+    <div class="row" id="tableContainer">
+        <div id="table_holder">
+            <table class="table table-hover sortable_table" id="table_shows">
+                <tr>
+                    <th>播放序号</th>
+                    <th>编号</th>
+                    <th>名称</th>
+                    <th>时长</th>
+                    <th>计划时间</th>
+                    <th>当前时间</th>
+                    <th>时间空当</th>
+                    <th>推荐节目编号</th>
+                </tr>
+            </table>
+        </div>
     </div>
 
-    <!--<div class="row">-->
+    <div>
+        <label id="label_table_changed" class="ctl_status_changed"
+               style="visibility:hidden; background-color:red"></label>
+        <br>
+        <button id="button_table_changed" class="ctl_status_changed btn btn-primary btn-sm" style="visibility:hidden">
+            保存现有顺序
+        </button>
+    </div>
+
+    <div>
+        <!--<div class="row">-->
         <!--<div class="col-xs-3">-->
-            <!--<label placeholder=".col-xs-3">Refresh interval (in seconds)</label>-->
+        <!--<label placeholder=".col-xs-3">Refresh interval (in seconds)</label>-->
         <!--</div>-->
         <!--<div class="col-xs-2">-->
-            <!--<select class="form-control" id="interval" placeholder=".col-xs-2">-->
-                <!--<option>1</option>-->
-                <!--<option>5</option>-->
-                <!--<option>10</option>-->
-                <!--<option>30</option>-->
-                <!--<option>60</option>-->
-            <!--</select>-->
+        <!--<select class="form-control" id="interval" placeholder=".col-xs-2">-->
+        <!--<option>1</option>-->
+        <!--<option>5</option>-->
+        <!--<option>10</option>-->
+        <!--<option>30</option>-->
+        <!--<option>60</option>-->
+        <!--</select>-->
 
         <!--</div>-->
-    <!--</div>-->
+        <!--</div>-->
 
-    <div id="dialog-upload" title="Upload a new schedule" style="visibility:hidden">
-        <form method=post enctype=multipart/form-data>
-            <fieldset>
+        <div id="dialog-upload" title="上传新的时间表" style="visibility:hidden">
+            <form method=post enctype=multipart/form-data>
+                <fieldset>
 
-                    <label for="exampleInputFile">CSV file for schedule</label>
+                    <label for="exampleInputFile">docx格式的时间表文件</label>
                     <input type=file name=file>
 
-                <button type="submit" class="btn btn-primary btn-sm">Upload</button>
-            </fieldset>
-        </form>
+                    <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+                </fieldset>
+            </form>
+        </div>
     </div>
-</div>
 
-<script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/bootstrap.min.js"></script>
 </body>
 </html>
