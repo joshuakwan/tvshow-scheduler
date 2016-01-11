@@ -21,77 +21,12 @@
 
     <script type=text/javascript src="/static/js/jquery-1.11.3.min.js"></script>
     <script type=text/javascript src="/static/js/jquery-ui.min.js"></script>
+    <script type=text/javascript src="/static/js/objects.js"></script>
+    <script type=text/javascript src="/static/js/common.js"></script>
     <script type="text/javascript">
 
-    var DisplayTime = function(timeString) {
-      this.timeStr = timeString;
-      var splitted = this.timeStr.split(":");
-      this.hour = parseInt(splitted[0]);
-      this.minute = parseInt(splitted[1]);
-      this.second = parseInt(splitted[2]);
-
-      if(this.hour >= 0){
-        this.isNegative = false;
-        this.totalSeconds = this.hour * 3600 + this.minute * 60 + this.second;
-      } else {
-        this.isNegative = true;
-        this.totalSeconds = -(Math.abs(this.hour) * 3600 + this.minute * 60 + this.second);
-      }
-    };
-
-    DisplayTime.prototype.greaterThan = function(displayTime) {
-      return (this.totalSeconds > displayTime.totalSeconds);
-    };
-
-    DisplayTime.prototype.equal = function(displayTime) {
-      return (this.totalSeconds == displayTime.totalSeconds);
-    };
-
-    DisplayTime.prototype.valueOf = function() {
-      return this.timeStr;
-    };
-
-    DisplayTime.prototype.toString = function() {
-      return this.timeStr;
-    };
-
-    DisplayTime.prototype.minus = function(displayTime) {
-      return new DisplayTime(valueToString(this.totalSeconds - displayTime.totalSeconds));
-    };
-
-    DisplayTime.prototype.plus = function(displayTime) {
-      return new DisplayTime(valueToString(this.totalSeconds + displayTime.totalSeconds));
-    };
-
-    var Show = function(data) {
-      this.number = data.seq;
-      this.name = data.name;
-      this.duration = new DisplayTime(data.duration);
-      this.plan = new DisplayTime(data.plan);
-    };
-
-    function valueToString(value) {
-      if(value < 0) {
-        var minus_flag = true;
-        value = Math.abs(value);
-      } else {
-        var minus_flag = false;
-      }
-
-      hour = parseInt(value / 3600);
-      minute = parseInt((value % 3600) / 60);
-      second = value - hour * 3600 - minute * 60
-
-      var time_str = checkTime(hour.toString()) + ":" +  checkTime(minute.toString()) + ":" +  checkTime(second.toString());
-
-      if(minus_flag == true) {
-        time_str = "-" + time_str;
-      }
-
-      return time_str
-    };
-
     var shows = new Map();
+    var startTime;
 
     var load_table = function() {
       $.getJSON('/_get_table',  // At this URL
@@ -103,6 +38,9 @@
                       table.deleteRow(i);
                     }
                   }
+
+                  startTime = new DisplayTime(data.table[0].plan);
+
                   for(var i = 0; i < data.table.length; i++) {
                     generateRow(table, i, data.table[i], getTime());
                   }
@@ -139,9 +77,10 @@
       now = new DisplayTime(nowString);
       for(var i = 1; i < rows.length; i++ ) {
         var row = table.rows[i];
-        var show = shows.get(row.cells[1].innerText)
+        var show = shows.get(row.cells[1].innerText);
+        row.cells[4].innerText = show.plan.toString();
         row.cells[5].innerText = now.toString();
-        var gap = show.plan.minus(now)
+        var gap = show.plan.minus(now);
         row.cells[6].innerText = gap.toString();
         row.cells[7].innerText = getRecommendation(show, now).toString();
       }
@@ -168,25 +107,6 @@
       return recommendation
     }
 
-    function getTime() {
-      var today = new Date();
-      var h = today.getHours();
-      var m = today.getMinutes();
-      var s = today.getSeconds();
-
-      m = checkTime(m);
-      s = checkTime(s);
-
-      return h + ":" + m + ":" + s;
-    }
-
-    function checkTime(i) {
-      if (i < 10) {
-        i = "0" + i;
-      }
-      return i;
-    }
-
     function showDialog() {
       document.getElementById("dialog-upload").style.visibility = "visible"
       $("#dialog-upload").dialog({
@@ -197,6 +117,32 @@
           }
         }
       });
+    }
+
+    function saveTable() {
+      $.ajax({
+        url: '/_save_table',
+        type: 'POST',
+        data: jsonizeShows(shows),
+        dataType: 'json',
+        contentType:'text/json'
+      }).done(function(data) {
+        if(data.result=='ok') {
+          document.getElementById("button_table_changed").style.visibility = "hidden";
+          document.getElementById("label_table_changed").style.visibility = "hidden";
+        }
+      });
+    }
+
+    function jsonizeShows(data) {
+      table = document.getElementById("table_shows");
+      rows = table.rows;
+      arr = new Array();
+      for(var i = 1; i < rows.length; i++) {
+        show = data.get(rows[i].cells[1].innerText);
+        arr.push(show);
+      }
+      return JSON.stringify(arr);
     }
 
     $(".sortable_table").on('click', '.up, .down', function(event){
@@ -220,8 +166,17 @@
 
       var sortHelper = function(e, ui) {
         var table = ui.item.parent()[0];
+
+        // Regenerate the sequence numbers
         for(var i = 1; i < table.rows.length; i++) {
           table.rows[i].cells[0].innerText = i;
+          show = shows.get(table.rows[i].cells[1].innerText);
+          if(i == 1) {
+            show.plan = startTime;
+          } else {
+            prev_show = shows.get(table.rows[i-1].cells[1].innerText);
+            show.plan = prev_show.plan.plus(prev_show.duration);
+          }
         }
 
         document.getElementById("button_table_changed").style.visibility = "visible";
@@ -236,7 +191,6 @@
 
       $( ".sortable_table tbody" ).disableSelection();
     });
-
 
     </script>
 </head>
@@ -260,11 +214,9 @@
                 <li><a href="#" onclick="showDialog()">上传新的时间表</a></li>
             </ul>
         </div>
-        <!--/.nav-collapse -->
     </div>
 </nav>
 <div class="container">
-
     <div class="row" id="tableContainer">
         <div id="table_holder">
             <table class="table table-hover sortable_table" id="table_shows">
@@ -281,16 +233,15 @@
             </table>
         </div>
     </div>
-
     <div>
         <label id="label_table_changed" class="ctl_status_changed"
                style="visibility:hidden; background-color:red"></label>
         <br>
-        <button id="button_table_changed" class="ctl_status_changed btn btn-primary btn-sm" style="visibility:hidden">
+        <button id="button_table_changed" class="ctl_status_changed btn btn-primary btn-sm"
+                style="visibility:hidden" onclick="saveTable()">
             保存现有顺序
         </button>
     </div>
-
     <div>
         <!--<div class="row">-->
         <!--<div class="col-xs-3">-->

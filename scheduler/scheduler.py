@@ -2,10 +2,8 @@
 import csv
 import logging
 import os
-
 from flask import Flask, request, jsonify, redirect
 from jinja2 import Environment, PackageLoader
-
 from display_time import DisplayTime
 from shows import Shows
 from doc_processor import DocumentProcessor
@@ -54,6 +52,17 @@ def get_table():
     global_shows = Shows(shows_data)
     table = global_shows.get_shows_table(time_now)
     return jsonify(table=table)
+
+
+@app.route('/_save_table', methods=['POST'])
+def save_table():
+    data = request.data
+    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.json')
+    if os.path.exists(file_name):
+        os.remove(file_name)
+    with open(file_name, 'a') as f:
+        f.write(data)
+    return jsonify(result='ok'), 200
 
 
 @app.route('/shows', methods=['GET', 'POST'])
