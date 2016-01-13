@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import csv
+import json
 import logging
 import os
+
 from flask import Flask, request, jsonify, redirect
 from jinja2 import Environment, PackageLoader
-from display_time import DisplayTime
-from shows import Shows
+
 from doc_processor import DocumentProcessor
 
 
@@ -44,14 +45,13 @@ def open_file(filename):
 
 @app.route('/_get_table')
 def get_table():
-    time_str = request.args.get('time')
-    time_now = DisplayTime(time_str)
-    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.docx')
-    processor = DocumentProcessor()
-    shows_data = processor.get_shows(file_name)
-    global_shows = Shows(shows_data)
-    table = global_shows.get_shows_table(time_now)
-    return jsonify(table=table)
+    file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.json')
+    data = json.loads(open(file_name, 'r').read())
+    for item in data:
+        item['duration'] = item['duration']['timeStr']
+        item['plan'] = item['plan']['timeStr']
+
+    return jsonify(table=data)
 
 
 @app.route('/_save_table', methods=['POST'])
@@ -81,9 +81,17 @@ def home():
         f = request.files['file']
         if f and allowed_file(f.filename):
             f.save(file_name)
+            processor = DocumentProcessor()
+            data = processor.get_shows(file_name)
+            json_file_name = os.path.join(app.config['UPLOAD_FOLDER'], 'data.json')
+            if os.path.exists(json_file_name):
+                os.remove(json_file_name)
+            with open(json_file_name, 'a') as f:
+                f.write(data)
             return redirect('/shows')
 
 
 if __name__ == '__main__':
     setup_logging()
     app.run(host='0.0.0.0', port=8080)
+

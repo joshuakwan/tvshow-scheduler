@@ -19,6 +19,10 @@ class DisplayTime(object):
     def __str__(self):
         return self._time_str
 
+    def to_json(self):
+        return {"timeStr": self._time_str, "totalSeconds": self.total_seconds, "isNegative": self.is_negative,
+                "hour": self.hour, "minute": self.minute, "second": self.second}
+
     @staticmethod
     def value_to_str(value):
         if value < 0:
@@ -61,3 +65,4 @@ class DisplayTime(object):
 
     def __ge__(self, other):
         return self.total_seconds >= other.total_seconds
+

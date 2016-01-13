@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import docx
+from show import Show, ShowEncoder
+import json
 
 
 class DocumentProcessor(object):
@@ -16,7 +18,7 @@ class DocumentProcessor(object):
         i = 0
         while i < len(table.columns):
             if table.columns[i].cells[0].text == u'NO.':
-                indices['seq'] = i
+                indices['number'] = i
             if table.columns[i].cells[0].text == u'时间':
                 indices['plan'] = i
             if table.columns[i].cells[0].text == u'时长':
@@ -35,17 +37,14 @@ class DocumentProcessor(object):
             duration = row.cells[indices['duration']].text
             plan = row.cells[indices['plan']].text
             # print ','.join([seq, name, duration, plan])
-            shows.append({'seq': seq, 'name': name, 'duration': duration, 'plan': plan})
+            shows.append(Show({'number': seq, 'name': name, 'duration': duration, 'plan': plan}))
             i += 1
 
-        return shows
+        return json.dumps(shows, cls=ShowEncoder)
 
 
 if __name__ == '__main__':
     doc_path = 'uploads/data.docx'
     processor = DocumentProcessor()
     shows = processor.get_shows(doc_path)
-    print len(shows)
-    for show in shows:
-        print '%s %s %s %s' % (
-            show['seq'], show['plan'].encode('utf-8'), show['duration'].encode('utf-8'), show['name'].encode('utf-8'))
+    print shows

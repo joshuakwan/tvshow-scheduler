@@ -60,7 +60,7 @@
     function generateRow(table, index, rowData, nowString) {
       now = new DisplayTime(nowString);
       show = new Show(rowData)
-      shows.set(rowData.seq, show);
+      shows.set(rowData.number, show);
       row = table.insertRow(index + 1);
       row.insertCell(0).innerText = index + 1;
       row.insertCell(1).innerText = show.number;

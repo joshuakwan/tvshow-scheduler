@@ -60,7 +60,7 @@ function valueToString(value) {
     };
 
     var Show = function(data) {
-      this.number = data.seq;
+      this.number = data.number;
       this.name = data.name;
       this.duration = new DisplayTime(data.duration);
       this.plan = new DisplayTime(data.plan);
